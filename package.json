@@ -1,1 +1,8 @@
-
+{
+  "name": "wasm-cpu-emulator",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cargo build --release",
+    "start": "./target/release/wasm-cpu-emulator"
+  }
+}

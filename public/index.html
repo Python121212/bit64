@@ -1,1 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust 64bit/32bit CPU Simulator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Rust CPU エミュレータ実験室</h1>
+        <p class="subtitle">ボタンを押すと、ブラウザからRender上のRust脳みそ（CPUエミュレータ）へ命令が飛びます！</p>
 
+        <div class="grid">
+            <!-- レジスタ表示 -->
+            <div class="card">
+                <h2>レジスタ (Registers)</h2>
+                <div class="register-item"><span>EAX (汎用):</span> <strong id="reg-eax">0</strong></div>
+                <div class="register-item"><span>EBX (汎用):</span> <strong id="reg-ebx">0</strong></div>
+                <div class="register-item"><span>EIP (プログラムカウンタ):</span> <strong id="reg-eip">0</strong></div>
+            </div>
+
+            <!-- メモリ・操作 -->
+            <div class="card">
+                <h2>コントロール & メモリ</h2>
+                <button id="step-btn">1ステップ実行 (runStep)</button>
+                <button id="reset-btn" class="secondary">リセット</button>
+                
+                <h3>現在のメモリマップ (先頭10バイト)</h3>
+                <div id="memory-view" class="memory-grid"></div>
+            </div>
+        </div>
+
+        <!-- ログ表示 -->
+        <div class="card log-card">
+            <h2>CPU 実行ログ (Execute Log)</h2>
+            <div id="log-box">> エミュレータの起動を待っています...</div>
+        </div>
+    </div>
+    <script>
+        // 初期CPU状態
+        const initialMemory = [
+            0xB8, 10, 0, 0, 0,  // 0~4:  MOV EAX, 10
+            0xBB, 20, 0, 0, 0,  // 5~9:  MOV EBX, 20
+            0x01,               // 10:   ADD EAX, EBX
+            0x00                // 11:   NOP (終了)
+        ];
+
+        let cpu = {
+            eax: 0, ebx: 0, eip: 0,
+            memory: [...initialMemory, ...new Array(20).fill(0)], // 余裕を持たせたメモリ
+            log: "レジスタが初期化されました。"
+        };
+
+        function updateUI() {
+            document.getElementById('reg-eax').innerText = cpu.eax;
+            document.getElementById('reg-ebx').innerText = cpu.ebx;
+            document.getElementById('reg-eip').innerText = cpu.eip;
+            document.getElementById('log-box').innerText = "> " + cpu.log;
+
+            // メモリの見た目を更新
+            const memView = document.getElementById('memory-view');
+            memView.innerHTML = '';
+            for(let i=0; i<12; i++) {
+                const activeClass = (i === cpu.eip) ? 'mem-cell active' : 'mem-cell';
+                memView.innerHTML += `<div class="${activeClass}"><div>0x${i.toString(16).toUpperCase()}</div><strong>${cpu.memory[i]}</strong></div>`;
+            }
+        }
+
+        // RustサーバーのAPIを叩いて1ステップ進める
+        document.getElementById('step-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/step', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpu })
+                });
+                cpu = await response.json();
+                updateUI();
+            } catch (err) {
+                document.getElementById('log-box').innerText = "> サーバー通信エラー。Renderがスリープ解除中かもしれません。";
+            }
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            cpu = { eax: 0, ebx: 0, eip: 0, memory: [...initialMemory, ...new Array(20).fill(0)], log: "リセットされました。" };
+            updateUI();
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
